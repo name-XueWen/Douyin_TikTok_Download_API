@@ -25,6 +25,7 @@ x-app-image: &app-image
   # without depending on a registry being reachable or current.
   image: ${DTK_IMAGE:-dtk-app}:${DTK_IMAGE_TAG:-dev}
   build:
+    network: host
     context: ..
     dockerfile: docker/Dockerfile
     args:
@@ -95,6 +96,8 @@ services:
   # reaching the internet, and nothing outside the compose project reaches them.
   # ----------------------------------------------------------------------
   postgres:
+    # timescale 需要预加载扩展，否则 CREATE EXTENSION 会拒绝
+    command: ["postgres", "-c", "shared_preload_libraries=timescaledb"]
     # Measured at 112 MiB at rest, but Postgres' working set is shared_buffers
     # plus per-connection memory plus the OS page cache it relies on, so this is
     # the one service where a tight limit degrades correctness rather than
@@ -103,7 +106,7 @@ services:
     # budget Postgres has to live inside.
     mem_limit: 2g
     pids_limit: 256
-    image: timescale/timescaledb-ha:pg17
+    image: timescale/timescaledb:2.31.0-pg17
     env_file:
       - path: ../.env
         required: false
@@ -119,7 +122,7 @@ services:
       # PGDATA for the timescaledb-ha image. Mounting the usual
       # /var/lib/postgresql/data instead would leave the real data directory
       # inside the container and lose the database on the first rebuild.
-      - postgres-data:/home/postgres/pgdata/data
+      - postgres-data:/var/lib/postgresql/data
     networks:
       - data
     healthcheck:
@@ -352,12 +355,13 @@ services:
     # because anything here is careless: a renderer, a GPU process and several
     # utility processes per tab, times the warm contexts.
     mem_limit: 4g
-    cpus: 4.0
+    cpus: 1.5
     pids_limit: 1024
     profiles:
       - browser
     image: dtk-browser-rpc:${DTK_IMAGE_TAG:-dev}
     build:
+      network: host
       context: ..
       dockerfile: docker/Dockerfile.browser
       args:
@@ -501,6 +505,7 @@ services:
       - downloader
     image: ${DTK_DOWNLOADER_IMAGE:-dtk-downloader}:${DTK_IMAGE_TAG:-dev}
     build:
+      network: host
       context: ..
       dockerfile: docker/Dockerfile.downloader
       args:
@@ -563,6 +568,7 @@ services:
       - transcriber
     image: ${DTK_TRANSCRIBER_IMAGE:-dtk-transcriber}:${DTK_IMAGE_TAG:-dev}
     build:
+      network: host
       context: ..
       dockerfile: docker/Dockerfile.transcriber
     env_file:

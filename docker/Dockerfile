@@ -52,13 +52,17 @@ RUN npm run build && test -d "${CONSOLE_OUT_DIR}" && mv "${CONSOLE_OUT_DIR}" /co
 # --------------------------------------------------------------------------
 # Stage 2: Python dependencies
 # --------------------------------------------------------------------------
-FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
+FROM ${PYTHON_BASE} AS uv
+ARG UV_VERSION
+RUN pip install --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/ uv==${UV_VERSION}
 
 FROM ${PYTHON_BASE} AS deps
 
-COPY --from=uv /uv /usr/local/bin/uv
+COPY --from=uv /usr/local/bin/uv /usr/local/bin/uv
 
-ENV UV_LINK_MODE=copy \
+ENV UV_DEFAULT_INDEX=https://mirrors.aliyun.com/pypi/simple/ \
+    UV_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/ \
+    UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never \
     UV_PROJECT_ENVIRONMENT=/app/.venv

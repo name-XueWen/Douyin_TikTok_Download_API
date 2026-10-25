@@ -65,6 +65,8 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright \
 # cosmetic: a browser that cannot render the platform's own script measures text
 # differently from every real visitor, and font metrics are a fingerprint.
 RUN if [ -n "${CLOAKBROWSER_COMMIT}" ]; then \
+      sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null; \
+      sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list 2>/dev/null; \
       apt-get update && apt-get install --no-install-recommends -y \
         ca-certificates \
         fonts-liberation \
@@ -100,14 +102,16 @@ RUN if [ -n "${CLOAKBROWSER_COMMIT}" ]; then \
 WORKDIR /srv
 
 COPY docker/browser_rpc/requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt
+RUN pip install --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/ -r /tmp/requirements.txt && rm /tmp/requirements.txt
 
 # The browser backend, pinned. Two separate steps so a failure names which one
 # went wrong: fetching the package, or fetching the browser it drives.
 RUN if [ -n "${CLOAKBROWSER_COMMIT}" ]; then \
-      pip install --no-cache-dir "cloakbrowser @ git+${CLOAKBROWSER_REPO}@${CLOAKBROWSER_COMMIT}" \
+      CLOAKBROWSER_DOWNLOAD_URL=https://ghfast.top/https://github.com/CloakHQ/cloakbrowser/releases/download \
+        CLOAKBROWSER_SKIP_CHECKSUM=true \
+        pip install --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/ "cloakbrowser @ git+${CLOAKBROWSER_REPO}@${CLOAKBROWSER_COMMIT}" \
       && mkdir -p "${CLOAKBROWSER_HOME}" \
-      && HOME="${CLOAKBROWSER_HOME}" sh -c "${CLOAKBROWSER_INSTALL_CMD}" \
+      && HOME="${CLOAKBROWSER_HOME}" CLOAKBROWSER_DOWNLOAD_URL=https://ghfast.top/https://github.com/CloakHQ/cloakbrowser/releases/download CLOAKBROWSER_SKIP_CHECKSUM=true sh -c "${CLOAKBROWSER_INSTALL_CMD}" \
       && HOME="${CLOAKBROWSER_HOME}" python -m cloakbrowser info \
          | grep -qE "^Installed: *True"; \
     else \
@@ -129,6 +133,7 @@ ENV HOME=/tmp \
     CLOAKBROWSER_HOME=${CLOAKBROWSER_HOME}
 
 COPY docker/browser_rpc /srv/browser_rpc
+RUN chmod -R a+rX /srv/browser_rpc
 COPY --chmod=0555 docker/browser-entrypoint.sh /usr/local/bin/browser-entrypoint
 
 RUN groupadd --system --gid "${DTK_GID}" dtk \
